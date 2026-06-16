@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rock Crack Detective: How AI Maps Underground Mine Walls</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --rock: #1a1a2e;
+    --deep: #16213e;
+    --seam: #0f3460;
+    --ore: #e94560;
+    --gold: #f5a623;
+    --crystal: #00d4ff;
+    --chalk: #e8e8e8;
+    --dust: #8a9bb0;
+    --surface: #1e2a3a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--rock);
+    color: var(--chalk);
+    overflow-x: hidden;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .hero-canvas {
+    position: absolute; inset: 0;
+    z-index: 0;
+  }
+
+  .hero-content { position: relative; z-index: 1; max-width: 800px; }
+
+  .eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--crystal);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.2rem, 6vw, 4.5rem);
+    font-weight: 700;
+    line-height: 1.05;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--ore);
+  }
+
+  .hero p {
+    font-size: 1.15rem;
+    color: var(--dust);
+    line-height: 1.7;
+    max-width: 580px;
+    margin: 0 auto 2.5rem;
+  }
+
+  .scroll-cue {
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    font-family: 'Space Mono', monospace; font-size: 0.7rem;
+    color: var(--dust); letter-spacing: 0.15em;
+    animation: bob 2s ease-in-out infinite;
+  }
+
+  .scroll-cue svg { opacity: 0.5; }
+
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+
+  /* ─── SECTIONS ─── */
+  section {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--crystal);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  h2 {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+    line-height: 1.15;
+  }
+
+  .lead {
+    font-size: 1.1rem;
+    color: var(--dust);
+    line-height: 1.8;
+    max-width: 660px;
+    margin-bottom: 3rem;
+  }
+
+  /* ─── PROBLEM CARDS ─── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 3rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .card:hover { border-color: var(--crystal); transform: translateY(-3px); }
+
+  .card-icon { font-size: 2rem; margin-bottom: 1rem; }
+
+  .card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--chalk);
+  }
+
+  .card p { font-size: 0.9rem; color: var(--dust); line-height: 1.6; }
+
+  /* ─── STEP FLOW ─── */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    margin: 2rem 0;
+  }
+
+  .steps::before {
+    content: '';
+    position: absolute;
+    left: 28px;
+    top: 60px;
+    bottom: 60px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--crystal), var(--ore));
+  }
+
+  .step {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    padding: 1.5rem 0;
+    cursor: pointer;
+  }
+
+  .step-num {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700; font-size: 1rem;
+    flex-shrink: 0;
+    position: relative; z-index: 1;
+    transition: transform 0.2s;
+  }
+
+  .step:hover .step-num { transform: scale(1.1); }
+
+  .s1 .step-num { background: var(--crystal); color: var(--rock); }
+  .s2 .step-num { background: var(--gold); color: var(--rock); }
+  .s3 .step-num { background: var(--ore); color: white; }
+  .s4 .step-num { background: #7c3aed; color: white; }
+
+  .step-body h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 0.4rem; }
+  .step-body p { font-size: 0.95rem; color: var(--dust); line-height: 1.65; }
+
+  .step-detail {
+    background: var(--surface);
+    border-left: 3px solid var(--crystal);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.25rem;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--dust);
+    display: none;
+  }
+
+  .step-detail.open { display: block; }
+
+  /* ─── ANIMATED DIAGRAMS ─── */
+  .diagram-box {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 2rem;
+    margin: 2rem 0;
+  }
+
+  .diagram-box h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--crystal);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ─── WAVE ANIMATION ─── */
+  .wave-demo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  @media(max-width:600px) { .wave-demo { grid-template-columns: 1fr; } }
+
+  .wave-panel {
+    background: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .wave-panel canvas { width: 100%; border-radius: 6px; }
+
+  .wave-label {
+    font-size: 0.8rem;
+    color: var(--dust);
+    margin-top: 0.5rem;
+  }
+
+  .wave-label strong { color: var(--chalk); }
+
+  /* ─── STEREONET ─── */
+  #stereonet-container {
+    display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;
+  }
+
+  #stereonet-container canvas { flex-shrink: 0; }
+
+  .stereo-legend { flex: 1; min-width: 180px; }
+
+  .legend-item {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.9rem; margin-bottom: 0.6rem;
+  }
+
+  .legend-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ─── COMPARISON TABLE ─── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin: 1.5rem 0;
+  }
+
+  .compare-table th {
+    background: var(--seam);
+    padding: 0.8rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--crystal);
+  }
+
+  .compare-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: var(--dust);
+    vertical-align: top;
+  }
+
+  .compare-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .compare-table td:first-child { color: var(--chalk); font-weight: 500; }
+
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-best { background: rgba(0,212,255,0.15); color: var(--crystal); }
+  .badge-ok { background: rgba(245,166,35,0.15); color: var(--gold); }
+  .badge-bad { background: rgba(233,69,96,0.15); color: var(--ore); }
+
+  /* ─── RESULTS ─── */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .result-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--crystal);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .result-label { font-size: 0.85rem; color: var(--dust); }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent);
+    margin: 0 2rem;
+  }
+
+  /* ─── CONCLUSION ─── */
+  .conclusion {
+    background: linear-gradient(135deg, var(--seam), var(--deep));
+    border-radius: 20px;
+    padding: 3rem;
+    text-align: center;
+    margin: 3rem 0;
+    border: 1px solid rgba(0,212,255,0.15);
+  }
+
+  .conclusion h2 { font-size: 2rem; margin-bottom: 1rem; }
+  .conclusion p { color: var(--dust); line-height: 1.7; max-width: 560px; margin: 0 auto; }
+
+  /* ─── TOC ─── */
+  .toc {
+    position: fixed;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 100;
+  }
+
+  .toc-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    cursor: pointer;
+    transition: background 0.3s, transform 0.3s;
+  }
+
+  .toc-dot.active { background: var(--crystal); transform: scale(1.5); }
+
+  @media(max-width:768px) { .toc { display: none; } }
+
+  /* ─── CYCLIC VIZ ─── */
+  .cyclic-demo {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+  }
+  @media(max-width:560px){ .cyclic-demo { grid-template-columns: 1fr; } }
+
+  .cyclic-panel {
+    background: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .cyclic-panel h4 {
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ore);
+    margin-bottom: 0.75rem;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .cyclic-panel.good h4 { color: var(--crystal); }
+
+  /* ─── TIMELINE ─── */
+  .progress-bar-row {
+    margin-bottom: 1.2rem;
+  }
+
+  .pb-label {
+    display: flex; justify-content: space-between;
+    font-size: 0.85rem; margin-bottom: 0.4rem;
+  }
+
+  .pb-label span:first-child { color: var(--chalk); }
+  .pb-label span:last-child { font-family: 'Space Mono', monospace; color: var(--crystal); }
+
+  .pb-track {
+    height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .pb-fill {
+    height: 100%;
+    border-radius: 99px;
+    width: 0;
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+</style>
+</head>
+<body>
+
+<!-- TABLE OF CONTENTS DOTS -->
+<nav class="toc" aria-label="Sections">
+  <div class="toc-dot active" data-section="0" title="Intro"></div>
+  <div class="toc-dot" data-section="1" title="Problem"></div>
+  <div class="toc-dot" data-section="2" title="Method"></div>
+  <div class="toc-dot" data-section="3" title="How it works"></div>
+  <div class="toc-dot" data-section="4" title="Results"></div>
+  <div class="toc-dot" data-section="5" title="Real World"></div>
+  <div class="toc-dot" data-section="6" title="Conclusion"></div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero" data-s="0">
+  <canvas class="hero-canvas" id="heroCanvas"></canvas>
+  <div class="hero-content">
+    <p class="eyebrow">Research Paper Explained</p>
+    <h1>AI That Maps <em>Cracks</em> in Mine Walls — Automatically</h1>
+    <p>Underground mines are riddled with fractures that can cause dangerous collapses. This research built a system that scans walls with a drone laser and automatically identifies every crack pattern — faster and more accurately than any previous method.</p>
+    <div class="scroll-cue">
+      <span>Scroll to explore</span>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M4 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══ THE PROBLEM ═══ -->
+<section data-s="1">
+  <p class="section-label">The Challenge</p>
+  <h2>Why Mine Walls Are Hard to Map</h2>
+  <p class="lead">Rock underground is never smooth. It's cut by countless fractures called <strong style="color:var(--chalk)">discontinuities</strong> — joints, cracks, and bedding planes. These weak spots control whether a tunnel stays up or collapses.</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">⛏️</div>
+      <h3>What are discontinuities?</h3>
+      <p>Cracks, fractures, and layering planes in rock. They're mechanically weak zones where failure can start — like perforations in paper.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📐</div>
+      <h3>Why map them?</h3>
+      <p>Knowing which direction cracks run, how steep they are, and how many exist lets engineers design safe tunnels and predict rock falls.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🚁</div>
+      <h3>The scanning part</h3>
+      <p>A DJI drone with a Velodyne laser scanner flies into a "stope" (excavated chamber) and records millions of 3D points — a point cloud of the rock surface.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🤔</div>
+      <h3>The hard part</h3>
+      <p>Automatically turning noisy 3D scans into labelled crack families — especially in fully enclosed underground spaces where every direction is present.</p>
+    </div>
+  </div>
+
+  <div class="diagram-box">
+    <h3>🎯 What a stope looks like (top-down schematic)</h3>
+    <canvas id="stopeCanvas" width="800" height="220" style="width:100%;border-radius:8px;"></canvas>
+    <p style="font-size:0.85rem;color:var(--dust);margin-top:1rem;text-align:center;">A stope is a chamber blasted out during ore extraction — rock faces on all sides, full of differently-angled crack patterns (shown as coloured lines)</p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ THE METHOD OVERVIEW ═══ -->
+<section data-s="2">
+  <p class="section-label">The Solution</p>
+  <h2>A 4-Step Pipeline</h2>
+  <p class="lead">The researchers built a fully automated workflow. Click each step to learn more.</p>
+
+  <div class="steps">
+    <div class="step s1" onclick="toggleStep(this)">
+      <div class="step-num">01</div>
+      <div class="step-body">
+        <h3>Scan the cave with a drone laser</h3>
+        <p>A LiDAR-equipped drone flies through the mine stope, capturing ~4 million 3D points at ~2.5 cm spacing.</p>
+        <div class="step-detail">
+          <strong style="color:var(--chalk)">Tool used:</strong> Hovermap scanner on a DJI M210 drone — a SLAM-based system that doesn't need GPS because it maps using its own laser returns. The result is a dense, georeferenced 3D point cloud with true north orientation.
+        </div>
+      </div>
+    </div>
+
+    <div class="step s2" onclick="toggleStep(this)">
+      <div class="step-num">02</div>
+      <div class="step-body">
+        <h3>Single-shot filtering — keep only flat surfaces</h3>
+        <p>A signal-processing trick (FFT on elevation angles) identifies and removes noise, edges, rock bolts, and rough patches in one pass.</p>
+        <div class="step-detail">
+          <strong style="color:var(--chalk)">How it works:</strong> For every point, look at neighbours in a sphere. Measure their elevation angles vs azimuth angles. Flat surfaces produce a clean sinusoidal signal. Rough/noisy points produce a messy signal. Measure the "messiness" (standard deviation of secondary FFT frequencies). If SD &gt; 1, discard the point.
+        </div>
+      </div>
+    </div>
+
+    <div class="step s3" onclick="toggleStep(this)">
+      <div class="step-num">03</div>
+      <div class="step-body">
+        <h3>Cyclic orientation transformation — fix the compass wrap</h3>
+        <p>Crack orientations (dip angle + dip direction) have a circular nature: 0° and 360° are the same direction. A custom math transformation preserves this.</p>
+        <div class="step-detail">
+          <strong style="color:var(--chalk)">The bug it fixes:</strong> If cracks at 5° and 355° exist (nearly the same direction), standard clustering would place them at opposite ends of the axis and think they're completely different! The cyclic transformation wraps them into a unit circle so nearby angles cluster correctly.
+        </div>
+      </div>
+    </div>
+
+    <div class="step s4" onclick="toggleStep(this)">
+      <div class="step-num">04</div>
+      <div class="step-body">
+        <h3>Hierarchical clustering — group cracks into families</h3>
+        <p>HDBSCAN automatically groups similar orientations into discontinuity sets, then DBSCAN separates individual planes within each set.</p>
+        <div class="step-detail">
+          <strong style="color:var(--chalk)">Why not k-means?</strong> k-means needs you to say how many groups exist in advance. HDBSCAN figures it out automatically, handles groups of different sizes, and labels outlier points as noise rather than forcing them into a group.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ DEEP DIVES ═══ -->
+<section data-s="3">
+  <p class="section-label">How It Works</p>
+  <h2>Visualised Explanations</h2>
+
+  <!-- WAVE DEMO -->
+  <div class="diagram-box">
+    <h3>📡 Step 2 — Signal filtering: flat vs bumpy surfaces</h3>
+    <p style="font-size:0.9rem;color:var(--dust);margin-bottom:1.5rem;">Each point in the scan generates a wave signal based on its neighbours' angles. Flat crack surfaces make clean sine waves. Bumpy/noisy regions make messy signals.</p>
+    <div class="wave-demo">
+      <div class="wave-panel">
+        <canvas id="waveFlat" width="300" height="120"></canvas>
+        <p class="wave-label">✅ <strong>Flat surface</strong> — clean sine wave → <span style="color:var(--crystal)">KEPT</span></p>
+      </div>
+      <div class="wave-panel">
+        <canvas id="waveNoisy" width="300" height="120"></canvas>
+        <p class="wave-label">❌ <strong>Bumpy/noisy surface</strong> — messy wave → <span style="color:var(--ore)">REMOVED</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CYCLIC DEMO -->
+  <div class="diagram-box">
+    <h3>🧭 Step 3 — The compass wrap problem & fix</h3>
+    <p style="font-size:0.9rem;color:var(--dust);margin-bottom:1.5rem;">Dip direction is circular (like compass bearings). 5° and 355° are nearly the same, but a straight number line shows them 350 apart.</p>
+    <div class="cyclic-demo">
+      <div class="cyclic-panel">
+        <h4>❌ Problem: Normal Cartesian Plot</h4>
+        <canvas id="cyclicBad" width="260" height="220"></canvas>
+        <p style="font-size:0.8rem;color:var(--dust);margin-top:0.5rem;">Points near 0° and 360° are split apart — wrong clusters!</p>
+      </div>
+      <div class="cyclic-panel good">
+        <h4>✅ Fix: Cyclic Transformation</h4>
+        <canvas id="cyclicGood" width="260" height="220"></canvas>
+        <p style="font-size:0.8rem;color:var(--dust);margin-top:0.5rem;">Points wrap into a circle — neighbours stay neighbours!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEREONET -->
+  <div class="diagram-box">
+    <h3>🌐 Step 4 — Stereonet: the geologist's scatter plot</h3>
+    <p style="font-size:0.9rem;color:var(--dust);margin-bottom:1.5rem;">A stereonet projects 3D crack orientations onto a 2D circle. Each dot = one crack plane. Clusters = families of parallel cracks. The proposed method found 6 clean families.</p>
+    <div id="stereonet-container">
+      <canvas id="stereonet" width="280" height="280" style="border-radius:50%;"></canvas>
+      <div class="stereo-legend">
+        <p style="font-size:0.85rem;color:var(--dust);margin-bottom:1rem;">6 discontinuity sets identified (animated):</p>
+        <div class="legend-item"><div class="legend-dot" style="background:#00d4ff"></div><span style="font-size:0.85rem;">Set 1 — Steep, roughly north</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f5a623"></div><span style="font-size:0.85rem;">Set 2 — Steep, east-facing</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e94560"></div><span style="font-size:0.85rem;">Set 3 — Steep, southwest</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#7c3aed"></div><span style="font-size:0.85rem;">Set 4 — Moderate, southeast</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div><span style="font-size:0.85rem;">Set 5 — Steep, south</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div><span style="font-size:0.85rem;">Set 6 — Steep, near 0°/360°</span></div>
+        <p style="font-size:0.8rem;color:var(--dust);margin-top:1rem;font-style:italic;">Each dot animates in as it's "discovered" by the algorithm</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ RESULTS ═══ -->
+<section data-s="4">
+  <p class="section-label">Results</p>
+  <h2>How Does It Compare?</h2>
+  <p class="lead">The new method was tested against 4 existing techniques. Lower error = better.</p>
+
+  <div class="results-grid" id="resultsGrid">
+    <div class="result-card">
+      <span class="result-number" data-target="1.95">0</span>°
+      <div class="result-label">Mean error in dip angle — best of all methods tested</div>
+    </div>
+    <div class="result-card">
+      <span class="result-number" data-target="2.20">0</span>°
+      <div class="result-label">Mean error in dip direction — best of all methods tested</div>
+    </div>
+    <div class="result-card">
+      <span class="result-number" data-target="8">0</span> min
+      <div class="result-label">Processing time for 4 million points (40% faster than nearest rival)</div>
+    </div>
+    <div class="result-card">
+      <span class="result-number" data-target="6">0</span>
+      <div class="result-label">Correct number of crack families found (exact match to ground truth)</div>
+    </div>
+  </div>
+
+  <div class="diagram-box">
+    <h3>📊 Speed & accuracy comparison</h3>
+
+    <p style="font-size:0.9rem;color:var(--dust);margin-bottom:1.5rem;">Mean orientation error (lower = better). Bar widths are proportional to error magnitude.</p>
+
+    <div id="errorBars">
+      <div class="progress-bar-row">
+        <div class="pb-label"><span>k-Means Clustering</span><span>~12° error</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--ore);width:0%" data-w="100%"></div></div>
+      </div>
+      <div class="progress-bar-row">
+        <div class="pb-label"><span>Planar Region Growing</span><span>~8.6° error</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--ore);width:0%" data-w="72%"></div></div>
+      </div>
+      <div class="progress-bar-row">
+        <div class="pb-label"><span>Discontinuity Set Extractor</span><span>~5.6° error</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--gold);width:0%" data-w="47%"></div></div>
+      </div>
+      <div class="progress-bar-row">
+        <div class="pb-label"><span>CloudCompare Facets</span><span>unable to classify</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--dust);width:0%" data-w="60%"></div></div>
+      </div>
+      <div class="progress-bar-row">
+        <div class="pb-label"><span style="color:var(--crystal);font-weight:600;">✨ Proposed Approach</span><span style="color:var(--crystal);">~2° error</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--crystal);width:0%" data-w="17%"></div></div>
+      </div>
+    </div>
+
+    <br>
+    <p style="font-size:0.9rem;color:var(--dust);margin-bottom:1.5rem;">Processing time in minutes (lower = better for equivalent full solutions)</p>
+
+    <div>
+      <div class="progress-bar-row">
+        <div class="pb-label"><span>k-Means Clustering</span><span>~217 min ⚠️</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--ore)" data-w="100%" data-anim="speed"></div></div>
+      </div>
+      <div class="progress-bar-row">
+        <div class="pb-label"><span>Planar Region Growing</span><span>~18 min</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--gold)" data-w="8%" data-anim="speed"></div></div>
+      </div>
+      <div class="progress-bar-row">
+        <div class="pb-label"><span>Discontinuity Set Extractor</span><span>~14 min</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--gold)" data-w="6.5%" data-anim="speed"></div></div>
+      </div>
+      <div class="progress-bar-row">
+        <div class="pb-label"><span style="color:var(--crystal);font-weight:600;">✨ Proposed Approach</span><span style="color:var(--crystal);">~8 min</span></div>
+        <div class="pb-track"><div class="pb-fill" style="background:var(--crystal)" data-w="3.7%" data-anim="speed"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="diagram-box">
+    <h3>🔍 What each method got wrong</h3>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Sets found</th>
+          <th>Key problem</th>
+          <th>Rating</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>k-Means</td>
+          <td>4 (should be 6)</td>
+          <td>Merges small crack families into big ones; no noise handling</td>
+          <td><span class="badge badge-bad">Poor</span></td>
+        </tr>
+        <tr>
+          <td>Region Growing</td>
+          <td>5 (should be 6)</td>
+          <td>Too strict — rejects real planes because rock isn't perfectly smooth</td>
+          <td><span class="badge badge-bad">Poor</span></td>
+        </tr>
+        <tr>
+          <td>DSE</td>
+          <td>10 (should be 6)</td>
+          <td>Over-splits — finds too many fake crack families in noisy areas</td>
+          <td><span class="badge badge-ok">Fair</span></td>
+        </tr>
+        <tr>
+          <td>CC Facets</td>
+          <td>7952 fragments</td>
+          <td>No grouping into families at all — just raw fragments</td>
+          <td><span class="badge badge-bad">Poor</span></td>
+        </tr>
+        <tr>
+          <td>Proposed ✨</td>
+          <td>6 ✅ exact</td>
+          <td>None — handles noise, cyclicity, and density variation</td>
+          <td><span class="badge badge-best">Best</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ REAL WORLD DEPLOYMENT ═══ -->
+<section data-s="5">
+  <p class="section-label">Real-World Deployment</p>
+  <h2>Applied to Industry: Mine Excellence Dataset</h2>
+  <p class="lead">In March 2026, the algorithm was applied to a real commercial mine dataset provided by Mine Excellence. Here's what happened — and what the honest limitations were.</p>
+
+  <!-- Email summary box -->
+  <div class="diagram-box" style="border-color:rgba(245,166,35,0.25);">
+    <h3>📧 Industry Collaboration — Email Summary (12 Mar 2026)</h3>
+    <p style="font-size:0.9rem;color:var(--dust);margin-bottom:1.5rem;">
+      PhD researcher Dibyayan Patra (UNSW) ran the algorithm on 14 scans provided by Mine Excellence. Only 2 out of 14 were suitable for structure mapping.
+    </p>
+
+    <div class="cards" style="margin-bottom:0;">
+      <div class="card" style="border-color:rgba(233,69,96,0.3);">
+        <div class="card-icon">🚫</div>
+        <h3>12 scans — not usable</h3>
+        <p>Most scans were either roadway scans (shotcrete-covered walls — no visible rock), incomplete/occluded stopes, duplicate regions, or had no significant structural features at all.</p>
+      </div>
+      <div class="card" style="border-color:rgba(0,212,255,0.3);">
+        <div class="card-icon">✅</div>
+        <h3>2 scans — results generated</h3>
+        <p><strong style="color:var(--chalk)">114-Flight 1</strong> and <strong style="color:var(--chalk)">125-Flight 1</strong> were identified as suitable stope sections and processed to produce full discontinuity set maps.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scan status table -->
+  <div class="diagram-box">
+    <h3>📋 All 14 Scans — Status at a Glance</h3>
+    <div style="overflow-x:auto;">
+      <table class="compare-table">
+        <thead>
+          <tr><th>Dataset</th><th>Status</th><th>Reason</th></tr>
+        </thead>
+        <tbody id="scanTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Results for both stopes -->
+  <div class="diagram-box">
+    <h3>🔬 Results: 114-Flight 1 &amp; 125-Flight 1</h3>
+    <p style="font-size:0.9rem;color:var(--dust);margin-bottom:2rem;">Both stopes were processed and yielded 3 discontinuity sets each. The stereonets and 3D point clouds below are recreated from the reported results.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-bottom:1rem;">
+
+      <!-- 114 -->
+      <div>
+        <p style="font-size:0.85rem;font-weight:600;color:var(--crystal);font-family:'Space Mono',monospace;margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">114-Flight 1</p>
+        <canvas id="stereo114" width="260" height="260" style="width:100%;border-radius:50%;display:block;margin:0 auto;max-width:260px;"></canvas>
+        <p style="font-size:0.8rem;color:var(--dust);text-align:center;margin-top:0.6rem;">Stereonet — 3 sets identified</p>
+        <div style="margin-top:1rem;">
+          <div class="legend-item"><div class="legend-dot" style="background:#00d4ff"></div><span style="font-size:0.85rem;">Set 1 — K=17 planes</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f5a623"></div><span style="font-size:0.85rem;">Set 2 — K=27 planes</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#e94560"></div><span style="font-size:0.85rem;">Set 3 — K=19 planes</span></div>
+        </div>
+      </div>
+
+      <!-- 125 -->
+      <div>
+        <p style="font-size:0.85rem;font-weight:600;color:var(--gold);font-family:'Space Mono',monospace;margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">125-Flight 1</p>
+        <canvas id="stereo125" width="260" height="260" style="width:100%;border-radius:50%;display:block;margin:0 auto;max-width:260px;"></canvas>
+        <p style="font-size:0.8rem;color:var(--dust);text-align:center;margin-top:0.6rem;">Stereonet — 3 sets identified</p>
+        <div style="margin-top:1rem;">
+          <div class="legend-item"><div class="legend-dot" style="background:#00d4ff"></div><span style="font-size:0.85rem;">Set 1 — K=12 planes</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f5a623"></div><span style="font-size:0.85rem;">Set 2 — K=8 planes</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#e94560"></div><span style="font-size:0.85rem;">Set 3 — K=22 planes</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Disclaimers / honest limitations -->
+  <div class="diagram-box" style="border-color:rgba(245,166,35,0.2);">
+    <h3>⚠️ Honest Limitations Flagged</h3>
+    <p style="font-size:0.9rem;color:var(--dust);margin-bottom:1.5rem;">The researcher was transparent about three important caveats when sharing results with Mine Excellence:</p>
+    <div class="cards" style="margin-bottom:0;">
+      <div class="card">
+        <div class="card-icon">🧭</div>
+        <h3>Not georeferenced</h3>
+        <p>The Mine Excellence scans lacked global coordinates. So the crack orientations shown are in the scanner's local frame — not true compass north. Georeferencing with survey targets is needed for real-world use.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📉</div>
+        <h3>Weak structural signal</h3>
+        <p>The orientation density graphs showed no sharp, well-separated peaks — meaning these specific scans weren't structurally rich. The algorithm works correctly, but the data itself wasn't ideal to demonstrate full capability.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🕶️</div>
+        <h3>Occlusion / shadowing</h3>
+        <p>Many structural planes were hidden in shadow because the drone path wasn't optimised. A better flight path with wider coverage angles would recover more rock-face data and improve results significantly.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Takeaway -->
+  <div style="background:linear-gradient(135deg,rgba(15,52,96,0.5),rgba(26,26,46,0.5));border:1px solid rgba(0,212,255,0.15);border-radius:16px;padding:2rem;margin-top:1.5rem;">
+    <p style="font-size:1rem;color:var(--chalk);line-height:1.8;">
+      <strong style="color:var(--crystal)">Key takeaway:</strong> The algorithm performed correctly on both suitable scans. The challenges were data-quality issues — not algorithmic failures. This is a common reality in deploying research tools in commercial mining environments: the quality of drone flight planning directly controls the quality of results.
+    </p>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ CONCLUSION ═══ -->
+<section data-s="6">
+  <p class="section-label">So What?</p>
+  <h2>Why This Matters</h2>
+  <p class="lead">This isn't just a better algorithm — it's a step toward real-time underground safety assessment. The full mine site had 6 stopes scanned; consistent crack families appeared across all of them, giving engineers a bigger picture of the rock structure.</p>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">🦺</div>
+      <h3>Safer mines</h3>
+      <p>Automatically knowing which crack families exist helps engineers design better roof support and blast sequences to prevent collapses.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">⏱️</div>
+      <h3>Faster decisions</h3>
+      <p>8 minutes vs 3+ hours. Geotechnical engineers can get structural maps quickly after each blast, not days later.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🤖</div>
+      <h3>No human bias</h3>
+      <p>Manual mapping is subjective. The algorithm finds the same families every time, providing consistent baseline data.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📱</div>
+      <h3>Future: real-time</h3>
+      <p>Next step is GPU acceleration and deployment on drone onboard computers — map cracks as the drone flies, in real time.</p>
+    </div>
+  </div>
+
+  <div class="conclusion">
+    <h2>The One-Line Summary</h2>
+    <p style="font-size:1.1rem;color:var(--chalk);margin-bottom:1rem;">"A drone scans a mine with a laser. AI removes the noise, corrects a subtle compass math error, then automatically groups millions of 3D points into labelled crack families — more accurately and 40× faster than before."</p>
+    <p>The three key innovations: single-shot frequency-domain filtering + cyclic orientation transformation + HDBSCAN hierarchical clustering.</p>
+  </div>
+</section>
+
+<script>
+// ═══ HERO PARTICLE CANVAS ═══
+const heroCanvas = document.getElementById('heroCanvas');
+const hCtx = heroCanvas.getContext('2d');
+let particles = [];
+let W, H;
+
+function resizeHero() {
+  W = heroCanvas.width = heroCanvas.offsetWidth;
+  H = heroCanvas.height = heroCanvas.offsetHeight;
+}
+resizeHero();
+window.addEventListener('resize', resizeHero);
+
+for (let i = 0; i < 120; i++) {
+  particles.push({
+    x: Math.random() * 1200, y: Math.random() * 800,
+    r: Math.random() * 1.5 + 0.3,
+    vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3,
+    a: Math.random()
+  });
+}
+
+function heroAnim() {
+  hCtx.clearRect(0,0,W,H);
+  hCtx.fillStyle='rgba(26,26,46,0.3)';
+  hCtx.fillRect(0,0,W,H);
+
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+    if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+    p.a += 0.003;
+    const alpha = (Math.sin(p.a)+1)/2 * 0.6 + 0.1;
+    hCtx.beginPath();
+    hCtx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    hCtx.fillStyle=`rgba(0,212,255,${alpha})`;
+    hCtx.fill();
+  });
+
+  // grid lines suggesting rock structure
+  hCtx.strokeStyle='rgba(0,212,255,0.04)';
+  hCtx.lineWidth=1;
+  for(let x=0;x<W;x+=60){
+    hCtx.beginPath(); hCtx.moveTo(x,0); hCtx.lineTo(x+50,H); hCtx.stroke();
+  }
+
+  requestAnimationFrame(heroAnim);
+}
+heroAnim();
+
+// ═══ STOPE DIAGRAM ═══
+const stopeC = document.getElementById('stopeCanvas');
+const sCtx = stopeC.getContext('2d');
+stopeC.width = stopeC.offsetWidth * devicePixelRatio || 800;
+stopeC.height = 220;
+
+function drawStope() {
+  const c = sCtx, w = stopeC.width, h = stopeC.height;
+  c.clearRect(0,0,w,h);
+
+  // Background
+  c.fillStyle = '#111827';
+  c.fillRect(0,0,w,h);
+
+  // Stope walls
+  const cx=w/2, cy=h/2, rx=w*0.35, ry=h*0.38;
+  c.strokeStyle='rgba(255,255,255,0.15)';
+  c.lineWidth=2;
+  c.beginPath();
+  c.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+  c.stroke();
+
+  c.fillStyle='rgba(255,255,255,0.03)';
+  c.fill();
+
+  // Label
+  c.fillStyle='rgba(138,155,176,0.8)';
+  c.font=`${w*0.018}px Space Grotesk, sans-serif`;
+  c.textAlign='center';
+  c.fillText('Stope cavity (cross-section)',cx,cy);
+  c.fillText('(hollowed rock chamber)',cx,cy+w*0.022);
+
+  // Crack families (coloured lines on walls)
+  const sets = [
+    {color:'#00d4ff', angle:80, label:'Set 1 (steep, N)'},
+    {color:'#f5a623', angle:20, label:'Set 2 (steep, E)'},
+    {color:'#e94560', angle:115, label:'Set 3 (steep, SW)'},
+    {color:'#7c3aed', angle:55, label:'Set 4 (moderate)'},
+    {color:'#10b981', angle:160, label:'Set 5 (steep, S)'},
+  ];
+
+  sets.forEach((s,i) => {
+    const offset = (i - sets.length/2) * rx*0.12;
+    const rad = (s.angle * Math.PI/180);
+    const dx = Math.cos(rad)*rx*0.7, dy = Math.sin(rad)*ry*0.7;
+
+    for(let j=-2;j<=2;j++){
+      const px=cx+offset*Math.cos(rad+Math.PI/2)*j*0.4;
+      const py=cy+offset*Math.sin(rad+Math.PI/2)*j*0.4;
+      c.beginPath();
+      c.moveTo(px-dx*0.6,py-dy*0.6);
+      c.lineTo(px+dx*0.6,py+dy*0.6);
+      c.strokeStyle=s.color+'99';
+      c.lineWidth=1.5;
+      c.stroke();
+    }
+
+    // Legend dot on rim
+    const angle2 = -Math.PI/2 + (i/(sets.length-1))*Math.PI;
+    const lx = cx + Math.cos(angle2)*rx*1.15;
+    const ly = cy + Math.sin(angle2)*ry*1.15;
+    c.beginPath(); c.arc(lx,ly,5,0,Math.PI*2);
+    c.fillStyle=s.color;
+    c.fill();
+    c.fillStyle=s.color;
+    c.font=`${Math.max(10,w*0.013)}px Space Grotesk, sans-serif`;
+    c.textAlign= lx<cx ? 'right' : 'left';
+    const labelX = lx<cx ? lx-9 : lx+9;
+    c.fillText(s.label, labelX, ly+4);
+  });
+}
+drawStope();
+
+// ═══ WAVE CANVASES ═══
+function drawWave(canvasId, isClean) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+
+  ctx.fillStyle='#0f1923';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.strokeStyle='rgba(255,255,255,0.1)';
+  ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+
+  ctx.beginPath();
+  ctx.lineWidth=2;
+  ctx.strokeStyle = isClean ? '#00d4ff' : '#e94560';
+
+  let t = 0;
+  function frame() {
+    ctx.fillStyle='rgba(15,25,35,0.15)';
+    ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(255,255,255,0.05)';
+    ctx.lineWidth=0.5;
+    ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+
+    ctx.beginPath();
+    ctx.lineWidth=2;
+    ctx.strokeStyle = isClean ? '#00d4ff' : '#e94560';
+    for(let x=0;x<W;x++){
+      const phase = (x/W)*Math.PI*4 + t;
+      let y;
+      if(isClean){
+        y = H/2 - Math.sin(phase)*H*0.35;
+      } else {
+        y = H/2 - Math.sin(phase)*H*0.2
+          - Math.sin(phase*3.7+1.2)*H*0.12
+          - Math.sin(phase*6.1+2.4)*H*0.08
+          - (Math.random()-0.5)*H*0.05;
+      }
+      if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    t += 0.04;
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+drawWave('waveFlat', true);
+drawWave('waveNoisy', false);
+
+// ═══ CYCLIC CANVASES ═══
+function drawCyclicBad(canvasId) {
+  const canvas=document.getElementById(canvasId);
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.fillStyle='#0f1923'; ctx.fillRect(0,0,W,H);
+
+  // Axes
+  ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(30,H-30); ctx.lineTo(W-20,H-30); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(30,20); ctx.lineTo(30,H-30); ctx.stroke();
+
+  ctx.fillStyle='rgba(138,155,176,0.7)';
+  ctx.font='10px Space Mono, monospace';
+  ctx.fillText('0°', 32, H-15);
+  ctx.fillText('360°', W-35, H-15);
+  ctx.fillText('Dip Dir →', W/2-25, H-5);
+
+  // Two clusters near 0° and 360° that SHOULD be together
+  const pointsA = Array.from({length:20}, () => [
+    35 + Math.random()*15, H-35 - Math.random()*60
+  ]);
+  const pointsB = Array.from({length:20}, () => [
+    W-20 - Math.random()*15, H-35 - Math.random()*60
+  ]);
+
+  pointsA.forEach(([x,y]) => {
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle='#e94560'; ctx.fill();
+  });
+  pointsB.forEach(([x,y]) => {
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle='#00d4ff'; ctx.fill();
+  });
+
+  // Labels
+  ctx.fillStyle='#e94560';ctx.font='9px Space Mono';ctx.fillText('← 5°',35,H-110);
+  ctx.fillStyle='#00d4ff';ctx.fillText('355° →',W-60,H-110);
+  ctx.fillStyle='rgba(245,166,35,0.9)';ctx.font='11px Space Grotesk';
+  ctx.textAlign='center';
+  ctx.fillText('Same direction split into',W/2,H/2-10);
+  ctx.fillText('2 separate "clusters"! ⚠️',W/2,H/2+10);
+  ctx.textAlign='left';
+}
+
+function drawCyclicGood(canvasId) {
+  const canvas=document.getElementById(canvasId);
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.fillStyle='#0f1923'; ctx.fillRect(0,0,W,H);
+
+  const cx=W/2, cy=H/2-10, r=Math.min(W,H)*0.35;
+
+  // Grid circles
+  ctx.strokeStyle='rgba(255,255,255,0.05)';
+  for(let i=1;i<=3;i++){
+    ctx.beginPath(); ctx.arc(cx,cy,r*i/3,0,Math.PI*2); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(cx,cy-r*1.05); ctx.lineTo(cx,cy+r*1.05); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx-r*1.05,cy); ctx.lineTo(cx+r*1.05,cy); ctx.stroke();
+
+  ctx.fillStyle='rgba(138,155,176,0.7)';
+  ctx.font='9px Space Mono, monospace';
+  ctx.textAlign='center';
+  ctx.fillText('N 0°/360°', cx, cy-r-8);
+  ctx.fillText('S 180°', cx, cy+r+16);
+
+  // One tight cluster near north (both 5° and 355° map close together)
+  const points = Array.from({length:40}, () => {
+    const angle = (Math.random()-0.5)*0.15; // near 0
+    const dipR = 0.7 + Math.random()*0.15;
+    return [
+      cx + Math.sin(angle)*r*dipR,
+      cy - Math.cos(angle)*r*dipR
+    ];
+  });
+
+  points.forEach(([x,y]) => {
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle='#00d4ff'; ctx.fill();
+  });
+
+  ctx.fillStyle='rgba(0,212,255,0.9)';ctx.font='11px Space Grotesk';
+  ctx.fillText('One correct cluster ✅', cx, cy+r+30);
+  ctx.textAlign='left';
+}
+
+drawCyclicBad('cyclicBad');
+drawCyclicGood('cyclicGood');
+
+// ═══ STEREONET ═══
+const stereoCanvas = document.getElementById('stereonet');
+const stCtx = stereoCanvas.getContext('2d');
+const SW=stereoCanvas.width, SH=stereoCanvas.height;
+const SCX=SW/2, SCY=SH/2, SR=SW/2-10;
+
+const setColors = ['#00d4ff','#f5a623','#e94560','#7c3aed','#10b981','#f59e0b'];
+const setParams = [
+  {da:83, dd:70, spread:8},
+  {da:61, dd:95, spread:5},
+  {da:80, dd:246, spread:9},
+  {da:72, dd:157, spread:11},
+  {da:80, dd:201, spread:5},
+  {da:80, dd:347, spread:8},
+];
+
+let stereoPoints = [];
+let stereoFrame = 0;
+let stereoStarted = false;
+
+function generateStereoPoints() {
+  const all=[];
+  setParams.forEach((s,si) => {
+    for(let i=0;i<60;i++){
+      const da = s.da + (Math.random()-0.5)*s.spread;
+      const dd = s.dd + (Math.random()-0.5)*s.spread;
+      const rad = Math.sin(da*Math.PI/180)/(1+Math.cos(da*Math.PI/180));
+      const x = SCX + rad*SR*Math.sin(dd*Math.PI/180);
+      const y = SCY - rad*SR*Math.cos(dd*Math.PI/180);
+      all.push({x,y,c:setColors[si],t:si*60+i*1.2});
+    }
+  });
+  return all.sort((a,b)=>a.t-b.t);
+}
+
+stereoPoints = generateStereoPoints();
+
+function drawStereoBackground() {
+  stCtx.clearRect(0,0,SW,SH);
+  stCtx.fillStyle='#0d1a27';
+  stCtx.beginPath(); stCtx.arc(SCX,SCY,SR,0,Math.PI*2); stCtx.fill();
+
+  // grid
+  stCtx.strokeStyle='rgba(255,255,255,0.07)'; stCtx.lineWidth=1;
+  [30,60,90].forEach(da=>{
+    const rad=Math.sin(da*Math.PI/180)/(1+Math.cos(da*Math.PI/180));
+    stCtx.beginPath(); stCtx.arc(SCX,SCY,rad*SR,0,Math.PI*2); stCtx.stroke();
+  });
+  for(let dd=0;dd<360;dd+=30){
+    const rx=Math.sin(dd*Math.PI/180), ry=-Math.cos(dd*Math.PI/180);
+    stCtx.beginPath(); stCtx.moveTo(SCX,SCY); stCtx.lineTo(SCX+rx*SR,SCY+ry*SR); stCtx.stroke();
+  }
+
+  // outer ring
+  stCtx.strokeStyle='rgba(255,255,255,0.2)'; stCtx.lineWidth=2;
+  stCtx.beginPath(); stCtx.arc(SCX,SCY,SR,0,Math.PI*2); stCtx.stroke();
+
+  // N label
+  stCtx.fillStyle='rgba(255,255,255,0.4)'; stCtx.font='11px Space Mono';
+  stCtx.textAlign='center'; stCtx.fillText('N',SCX,14);
+}
+
+function animateStereo() {
+  drawStereoBackground();
+  const now = stereoFrame;
+  stereoPoints.forEach(p=>{
+    if(p.t<=now){
+      stCtx.beginPath(); stCtx.arc(p.x,p.y,3,0,Math.PI*2);
+      stCtx.fillStyle=p.c+'cc'; stCtx.fill();
+    }
+  });
+  stereoFrame+=2.5;
+  if(stereoFrame < stereoPoints[stereoPoints.length-1].t+30){
+    requestAnimationFrame(animateStereo);
+  }
+}
+
+// Trigger stereonet when visible
+const stereoObserver = new IntersectionObserver(entries=>{
+  if(entries[0].isIntersecting && !stereoStarted){
+    stereoStarted=true;
+    stereoFrame=0;
+    animateStereo();
+  }
+},{threshold:0.4});
+stereoObserver.observe(stereoCanvas);
+
+// ═══ RESULT COUNTER ANIMATION ═══
+function animateCounters() {
+  document.querySelectorAll('[data-target]').forEach(el=>{
+    const target=parseFloat(el.dataset.target);
+    const isFloat = target%1!==0;
+    let current=0;
+    const step=target/60;
+    const timer=setInterval(()=>{
+      current=Math.min(current+step,target);
+      el.textContent = isFloat ? current.toFixed(2) : Math.round(current);
+      if(current>=target) clearInterval(timer);
+    },20);
+  });
+}
+
+// Trigger bars and counters
+let barsAnimated=false;
+const barObserver = new IntersectionObserver(entries=>{
+  if(entries[0].isIntersecting && !barsAnimated){
+    barsAnimated=true;
+    animateCounters();
+    setTimeout(()=>{
+      document.querySelectorAll('.pb-fill').forEach(bar=>{
+        bar.style.width = bar.dataset.w || '0%';
+      });
+    },100);
+  }
+},{threshold:0.3});
+barObserver.observe(document.getElementById('resultsGrid'));
+
+// ═══ TOC DOTS ═══
+// ═══ SCAN TABLE ═══
+const scanData = [
+  ['114-Flight 1', 'results', '✅ Results generated — stope section'],
+  ['115-Flight 1', 'bad', '⚠️ Vastly incomplete, majority occluded, shotcrete-covered'],
+  ['116-Flight 1', 'neutral', 'ℹ️ No significant structures present'],
+  ['118-Flight 2', 'bad', '🚫 Roadway scan, shotcrete-covered'],
+  ['122-Flight 1', 'bad', '🚫 Roadway scan, shotcrete-covered'],
+  ['121-Flight 2', 'neutral', 'ℹ️ Duplicate region of Scan 125'],
+  ['119-Flight 1', 'bad', '🚫 Roadway scan, shotcrete-covered'],
+  ['123-Flight 1', 'bad', '🚫 Roadway scan, shotcrete-covered'],
+  ['125-Flight 1', 'results', '✅ Results generated — stope section'],
+  ['124-Flight 1', 'bad', '⚠️ Vastly incomplete, majority occluded, shotcrete-covered'],
+  ['127-Flight 1', 'bad', '🚫 Roadway scan, shotcrete-covered'],
+  ['126-Flight 1', 'neutral', 'ℹ️ No significant structures present'],
+  ['128-Flight 1', 'bad', '⚠️ Vastly incomplete, majority occluded, shotcrete-covered'],
+  ['129-Flight 1', 'neutral', 'ℹ️ No significant structures present'],
+];
+
+const tbody = document.getElementById('scanTable');
+if(tbody){
+  scanData.forEach(([ds, type, remark]) => {
+    const tr = document.createElement('tr');
+    const badgeMap = {results:'badge-best', bad:'badge-bad', neutral:'badge-ok'};
+    const labelMap = {results:'Usable', bad:'Not Suitable', neutral:'No Structures'};
+    tr.innerHTML = `
+      <td>${ds}</td>
+      <td><span class="badge ${badgeMap[type]}">${labelMap[type]}</span></td>
+      <td>${remark}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ═══ MINI STEREONETS ═══
+function drawMiniStereonet(canvasId, sets, title) {
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const cx=W/2, cy=H/2, r=W/2-8;
+
+  ctx.fillStyle='#0d1a27';
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1;
+  [30,60,90].forEach(da=>{
+    const rad=Math.sin(da*Math.PI/180)/(1+Math.cos(da*Math.PI/180));
+    ctx.beginPath(); ctx.arc(cx,cy,rad*r,0,Math.PI*2); ctx.stroke();
+  });
+  for(let dd=0;dd<360;dd+=30){
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+Math.sin(dd*Math.PI/180)*r, cy-Math.cos(dd*Math.PI/180)*r);
+    ctx.stroke();
+  }
+  ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+
+  // North label
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.font='9px Space Mono'; ctx.textAlign='center';
+  ctx.fillText('N',cx,13);
+
+  // Plot sets — animate in
+  let frame2=0;
+  const allPts=[];
+  sets.forEach((s,si)=>{
+    for(let i=0;i<40;i++){
+      const da=s.da+(Math.random()-0.5)*s.spread;
+      const dd=s.dd+(Math.random()-0.5)*s.spread;
+      const rad2=Math.sin(da*Math.PI/180)/(1+Math.cos(da*Math.PI/180));
+      allPts.push({
+        x: cx+rad2*r*Math.sin(dd*Math.PI/180),
+        y: cy-rad2*r*Math.cos(dd*Math.PI/180),
+        c: s.color,
+        t: si*40+i
+      });
+    }
+  });
+  allPts.sort((a,b)=>a.t-b.t);
+
+  function anim2(){
+    // redraw bg
+    ctx.fillStyle='#0d1a27';
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1;
+    [30,60,90].forEach(da=>{
+      const rad=Math.sin(da*Math.PI/180)/(1+Math.cos(da*Math.PI/180));
+      ctx.beginPath(); ctx.arc(cx,cy,rad*r,0,Math.PI*2); ctx.stroke();
+    });
+    for(let dd=0;dd<360;dd+=30){
+      ctx.beginPath(); ctx.moveTo(cx,cy);
+      ctx.lineTo(cx+Math.sin(dd*Math.PI/180)*r, cy-Math.cos(dd*Math.PI/180)*r);
+      ctx.stroke();
+    }
+    ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.4)';
+    ctx.font='9px Space Mono'; ctx.textAlign='center';
+    ctx.fillText('N',cx,13);
+
+    allPts.forEach(p=>{
+      if(p.t<=frame2){
+        ctx.beginPath(); ctx.arc(p.x,p.y,3.5,0,Math.PI*2);
+        ctx.fillStyle=p.c+'dd'; ctx.fill();
+      }
+    });
+    frame2+=3;
+    if(frame2 < allPts[allPts.length-1].t+20) requestAnimationFrame(anim2);
+  }
+
+  // Observe canvas
+  const obs = new IntersectionObserver(entries=>{
+    if(entries[0].isIntersecting){ obs.disconnect(); anim2(); }
+  },{threshold:0.5});
+  obs.observe(canvas);
+}
+
+// 114 – sets oriented based on description (3 sets)
+drawMiniStereonet('stereo114', [
+  {da:75, dd:45,  spread:12, color:'#00d4ff'},
+  {da:55, dd:200, spread:10, color:'#f5a623'},
+  {da:65, dd:310, spread:14, color:'#e94560'},
+], '114-Flight 1');
+
+// 125 – slightly different cluster locations
+drawMiniStereonet('stereo125', [
+  {da:60, dd:30,  spread:10, color:'#00d4ff'},
+  {da:70, dd:175, spread:12, color:'#f5a623'},
+  {da:50, dd:280, spread:13, color:'#e94560'},
+], '125-Flight 1');
+
+// ═══ TOC ═══
+const sections = document.querySelectorAll('[data-s]');
+const dots = document.querySelectorAll('.toc-dot');
+
+const sectionObserver = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const idx = e.target.dataset.s;
+      dots.forEach(d=>d.classList.remove('active'));
+      dots[idx] && dots[idx].classList.add('active');
+    }
+  });
+},{threshold:0.4});
+
+sections.forEach(s=>sectionObserver.observe(s));
+
+dots.forEach((dot,i)=>{
+  dot.addEventListener('click',()=>{
+    sections[i].scrollIntoView({behavior:'smooth'});
+  });
+});
+
+// ═══ STEP TOGGLE ═══
+function toggleStep(el) {
+  const detail = el.querySelector('.step-detail');
+  detail.classList.toggle('open');
+}
+</script>
+</body>
+</html>
